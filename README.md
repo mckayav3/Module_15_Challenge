@@ -29,7 +29,7 @@ This project leverages python 3.8.11 with the following packages:
 
 ## Examples
 
-The images below show the different types of dataframes and outputs that should be a result from running the code in the MachineLearning Trading Bot application.
+The images and animated videos below show the results you should get from running the code in the Robo Advisor application.
 
 
 ![](./images/TestBot.mp4)
