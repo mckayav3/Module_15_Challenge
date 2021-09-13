@@ -1,4 +1,4 @@
-### Required Libraries ###
+ ### Required Libraries ###
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 
@@ -110,6 +110,43 @@ In this section, you will create an Amazon Lambda function that will validate th
 7. Build your bot, and test it with valid and invalid data for the slots.
 
 """
+# This function validates the data that the user inputs
+def validate_data(age, investment_amount, risk_level):
+   
+    # Validate age to make sure it is 0 > age < 65
+    if age is not None:
+        age = parse_int(age)
+        if age <= 0:
+            return build_validation_result(False,"age", "Your age is invalid. Please provide a valid age.")
+        elif age>= 65:
+            return build_validation_result(False,"age", "Your age doesn't qualify. You are at or beyond retirement age.")
+
+    # Validate investment_amount to make sure it is >= 5000
+    if investment_amount is not None:
+        investment_amount = parse_int(investment_amount)
+        if investment_amount <= 5000:
+            return build_validation_result(False, "investmnet_amount", "The amount you entered isn't enough. Put in a higher amount")
+        
+    # Validate risk_level to none, low, medium, and high.
+    if risk_level is not None:
+        risk_level = parse_str(risk_level)
+        if risk_level not in ["none", "low", "medium", "high"]:
+            return build_validation_result(False, "risk_level","The risk level you entered is invalid. Please pick from none, low, medium, or high.")
+
+    return build_validation_result(True, None, None)
+
+# This function is used to choose a investment recommendation based on the selected risk level
+def investment_recommendation(risk_level):
+    recommendation_choice = ""
+    if risk_level == "none":
+        recommendation_choice = "100% bonds (AGG), 0% equities (SPY)"
+    elif risk_level == "low":
+        recommendation_choice = "60% bonds (AGG), 40% equities (SPY)"
+    elif risk_level == "medium":
+        recommendation_choice = "40% bonds (AGG), 60% equities (SPY)"
+    elif risk_level == "high":
+        recommendation_choice = "20% bonds (AGG), 80% equities (SPY)"
+    return recommendation_choice
 
 
 ### Intents Handlers ###
@@ -124,7 +161,42 @@ def recommend_portfolio(intent_request):
     risk_level = get_slots(intent_request)["riskLevel"]
     source = intent_request["invocationSource"]
 
-    # YOUR CODE GOES HERE!
+
+    # This code performs basic validation on the supplied input slots.
+    if source == "DialogCodeHook":
+        # Gets all the slots
+        slots = get_slots(intent_request)
+        # Validates user inputs
+        validation_result = validate_data(age, investment_amount, intent_request)
+        # If the data provided by the user is not valid,
+        # the elicitSlot dialog action is used to re-prompt for the first violation detected.
+        if not validation_result["isValid"]:
+            slots[validation_result["violatedSlot"]]= None
+            # Returns an elicitSlot dialog to request new data for the invalid slot
+            return elicit_slot(intent_request["sessionAttributes"],
+            intent_request["currentIntent"]["name"],
+            slots,
+            validation_result["violatedSlot"],
+            validation_result["message"],
+            )
+        # Fetch current session attributes
+        output_session_attributes = intent_request["sessionAttributes"]
+
+        # Once all slots are valid, a delegate dialog is returned to Lex to choose the next course of action.
+        return delegate(output_session_attributes, get_slots(intent_request))
+    
+    recommendation_choice = investment_recommendation(risk_level)
+
+    return close(
+        intent_request["sessionAttributes"],
+        "Fulfilled",
+        {
+            "contentType":"PlainText",
+            "content":""" Thank you for your information. With {} risk you should invest ${}. Thank you again {} for using robo advisor.
+            """.format(risk_level, recommendation_choice, first_name
+            ),
+        },
+    )
 
 
 ### Intents Dispatcher ###
